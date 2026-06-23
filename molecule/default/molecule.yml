@@ -1,0 +1,56 @@
+---
+dependency:
+  name: galaxy
+
+driver:
+  name: docker
+
+platforms:
+  - name: ubuntu-jammy
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    pre_build_image: true
+
+  - name: ubuntu-noble
+    image: geerlingguy/docker-ubuntu2404-ansible:latest
+    pre_build_image: true
+
+  - name: ubuntu-resolute
+    image: geerlingguy/docker-ubuntu2604-ansible:latest
+    pre_build_image: true
+
+  - name: debian-bookworm
+    image: geerlingguy/docker-debian12-ansible:latest
+    pre_build_image: true
+
+  - name: debian-trixie
+    image: geerlingguy/docker-debian13-ansible:latest
+    pre_build_image: true
+
+  - name: el-9
+    image: geerlingguy/docker-rockylinux9-ansible:latest
+    pre_build_image: true
+
+  - name: el-10
+    image: geerlingguy/docker-rockylinux10-ansible:latest
+    pre_build_image: true
+
+provisioner:
+  name: ansible
+  playbooks:
+    converge: converge.yml
+
+verifier:
+  name: testinfra
+  directory: tests/
+  options:
+    v: true
+    p: "no:cacheprovider"
+
+scenario:
+  test_sequence:
+    - destroy
+    - create
+    - converge
+    - idempotence
+    - verify
+    - destroy

@@ -1,0 +1,50 @@
+---
+- name: Gather OS-specific variables
+  ansible.builtin.include_vars: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts['distribution_release'] }}.yml"
+        - "{{ ansible_facts['distribution'] }}.yml"
+        - "{{ ansible_facts['os_family'] }}.yml"
+        - "main.yml"
+      paths:
+        - "vars"
+  tags: corosync-qnetd
+
+- name: Run preflight assertions
+  ansible.builtin.include_tasks: preflight.yml
+  tags: corosync-qnetd
+
+- name: Ensure corosync-qnetd is installed (Debian family)
+  ansible.builtin.apt:
+    name: "{{ __corosync_qnetd_packages + corosync_qnetd_extra_packages }}"
+    state: present
+  when: ansible_facts['os_family'] == 'Debian'
+  tags: corosync-qnetd
+
+- name: Ensure corosync-qnetd is installed (RedHat family)
+  ansible.builtin.dnf:
+    name: "{{ __corosync_qnetd_packages + corosync_qnetd_extra_packages }}"
+    enablerepo: "{{ __corosync_qnetd_enablerepo | default(omit) }}"
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+  tags: corosync-qnetd
+
+- name: Configure corosync-qnetd
+  ansible.builtin.template:
+    src: corosync-qnetd.j2
+    dest: "{{ __corosync_qnetd_env_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart corosync-qnetd
+  tags: corosync-qnetd
+
+- name: Ensure corosync-qnetd service is enabled and started
+  ansible.builtin.systemd_service:
+    name: corosync-qnetd.service
+    enabled: true
+    state: started
+  when: corosync_qnetd_enable_service
+  tags: corosync-qnetd

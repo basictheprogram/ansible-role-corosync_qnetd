@@ -1,0 +1,4 @@
+---
+# Fallback when no OS-specific file in this directory matches via
+# first_found. Intentionally empty — every supported platform currently
+# has its own vars/<OsFamily>.yml.

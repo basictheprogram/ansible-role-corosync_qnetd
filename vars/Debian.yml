@@ -1,0 +1,7 @@
+---
+__corosync_qnetd_packages:
+  - corosync-qnetd
+
+# Debian/Ubuntu's corosync-qnetd.service sources COROSYNC_QNETD_OPTIONS
+# from this file via EnvironmentFile=.
+__corosync_qnetd_env_file: /etc/default/corosync-qnetd

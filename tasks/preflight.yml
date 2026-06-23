@@ -1,0 +1,10 @@
+---
+- name: Assert minimum Ansible version
+  ansible.builtin.assert:
+    that:
+      - ansible_version.full is version('2.20', '>=')
+    fail_msg: >-
+      realtime.corosync_qnetd requires ansible-core >= 2.20.
+      Found {{ ansible_version.full }}.
+    quiet: true
+  tags: corosync-qnetd

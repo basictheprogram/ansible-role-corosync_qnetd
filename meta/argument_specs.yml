@@ -1,0 +1,79 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure corosync-qnetd
+    description: >
+      Installs the corosync-qnetd package and manages the corosync-qnetd
+      service — the standalone quorum arbitrator daemon for corosync
+      clusters such as two-node Proxmox VE clusters. Per-cluster TLS
+      certificate trust setup (corosync-qdevice-net-certutil) is out of
+      scope; that remains a manual step performed from each client cluster.
+    author: Bob Tanner
+    options:
+      corosync_qnetd_enable_service:
+        type: bool
+        default: true
+        description: >
+          Whether to enable and start the corosync-qnetd service after
+          installation. Set to false to manage service state externally —
+          for example, if you want to complete certificate trust setup
+          before the daemon first starts.
+
+      corosync_qnetd_extra_packages:
+        type: list
+        elements: str
+        default: []
+        description: >
+          Additional OS packages to install alongside corosync-qnetd.
+
+      corosync_qnetd_listen_address:
+        type: str
+        default: ""
+        description: >
+          IP address corosync-qnetd listens on. Empty means listen on
+          the wildcard address. Site-specific binding addresses belong
+          in group_vars/host_vars, not in this role's defaults.
+
+      corosync_qnetd_listen_port:
+        type: int
+        default: 5403
+        description: >
+          TCP port corosync-qnetd listens on.
+
+      corosync_qnetd_address_family:
+        type: str
+        default: "any"
+        choices: ["any", "ipv4", "ipv6"]
+        description: >
+          Which IP address family to listen on.
+
+      corosync_qnetd_tls:
+        type: str
+        default: "off"
+        choices: ["on", "off", "required"]
+        description: >
+          TLS mode for client (corosync-qdevice) connections. "on" and
+          "required" require the daemon's own NSS certificate database
+          to already exist (corosync-qnetd-certutil -i), which this
+          role does not create — see README.md and DESIGN.md. Defaults
+          to "off" so the service starts cleanly with zero manual steps
+          on every supported platform.
+
+      corosync_qnetd_client_cert_required:
+        type: bool
+        default: true
+        description: >
+          Whether clients must present a TLS client certificate. Only
+          takes effect when corosync_qnetd_tls is not "off".
+
+      corosync_qnetd_max_clients:
+        type: int
+        default: 0
+        description: >
+          Maximum simultaneous client connections. 0 means no limit.
+
+      corosync_qnetd_debug:
+        type: bool
+        default: false
+        description: >
+          Turn on debug-level logging.

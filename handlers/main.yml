@@ -1,0 +1,7 @@
+---
+- name: Restart corosync-qnetd
+  ansible.builtin.systemd_service:
+    name: corosync-qnetd.service
+    state: restarted
+  when: corosync_qnetd_enable_service
+  tags: corosync-qnetd

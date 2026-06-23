@@ -1,0 +1,38 @@
+---
+# Whether to enable and start the corosync-qnetd service after the package
+# is installed. Set to false to manage service state externally — for
+# example, if certificate trust setup must happen before the daemon
+# first starts.
+corosync_qnetd_enable_service: true
+
+# Additional OS packages to install alongside corosync-qnetd.
+corosync_qnetd_extra_packages: []
+
+# IP address corosync-qnetd listens on. Empty (default) means listen on
+# the wildcard address. Site-specific binding addresses belong in
+# group_vars/host_vars, not in this role's defaults.
+corosync_qnetd_listen_address: ""
+
+# TCP port corosync-qnetd listens on.
+corosync_qnetd_listen_port: 5403
+
+# Which IP address family to listen on: "any", "ipv4", or "ipv6".
+corosync_qnetd_address_family: "any"
+
+# TLS mode for client (corosync-qdevice) connections: "on", "off", or
+# "required". "on" and "required" require the daemon's own NSS
+# certificate database to already exist (corosync-qnetd-certutil -i),
+# which this role does not create — see README.md and DESIGN.md.
+# Defaults to "off" so the service starts cleanly with zero manual
+# steps on every supported platform.
+corosync_qnetd_tls: "off"
+
+# Whether clients must present a TLS client certificate. Only takes
+# effect when corosync_qnetd_tls is not "off".
+corosync_qnetd_client_cert_required: true
+
+# Maximum simultaneous client connections. 0 means no limit.
+corosync_qnetd_max_clients: 0
+
+# Turn on debug-level logging.
+corosync_qnetd_debug: false

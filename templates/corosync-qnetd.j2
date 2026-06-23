@@ -1,0 +1,25 @@
+# {{ ansible_managed }}
+#
+# Configuration for corosync-qnetd, sourced by corosync-qnetd.service via
+# EnvironmentFile. Generated from corosync_qnetd_* role variables — see
+# README.md. Do not edit by hand; changes will be overwritten.
+
+{% set qnetd_args = [] %}
+{% if corosync_qnetd_address_family == "ipv4" %}
+{% set _ = qnetd_args.append("-4") %}
+{% elif corosync_qnetd_address_family == "ipv6" %}
+{% set _ = qnetd_args.append("-6") %}
+{% endif %}
+{% if corosync_qnetd_listen_address %}
+{% set _ = qnetd_args.append("-l " + corosync_qnetd_listen_address) %}
+{% endif %}
+{% set _ = qnetd_args.append("-p " + (corosync_qnetd_listen_port | string)) %}
+{% set _ = qnetd_args.append("-s " + corosync_qnetd_tls) %}
+{% if corosync_qnetd_tls != "off" %}
+{% set _ = qnetd_args.append("-c " + (corosync_qnetd_client_cert_required | ternary("on", "off"))) %}
+{% endif %}
+{% set _ = qnetd_args.append("-m " + (corosync_qnetd_max_clients | string)) %}
+{% if corosync_qnetd_debug %}
+{% set _ = qnetd_args.append("-d") %}
+{% endif %}
+COROSYNC_QNETD_OPTIONS="{{ qnetd_args | join(' ') }}"

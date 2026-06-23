@@ -1,0 +1,47 @@
+---
+dependencies: []
+
+galaxy_info:
+  author: "Bob Tanner"
+  namespace: realtime
+  role_name: corosync_qnetd
+  description: >
+    Installs and configures corosync-qnetd, the standalone Qdevice Network
+    Quorum Daemon that acts as an external quorum arbitrator for corosync
+    clusters — for example, two-node Proxmox VE clusters that need a
+    tie-breaker vote. Installs the corosync-qnetd package (enabling the
+    HighAvailability repo on EL hosts) and manages the corosync-qnetd
+    service. Per-cluster TLS certificate trust setup
+    (corosync-qdevice-net-certutil) is out of scope and remains a manual
+    step performed from each client cluster.
+  company: "Real Time Enterprises, Inc."
+  issue_tracker_url: "https://gitlab.real-time.com/ansible-roles/corosync-qnetd/-/issues"
+  license: MIT
+  min_ansible_version: "2.20"
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+        - resolute
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+    - name: EL
+      versions:
+        - "9"
+        - "10"
+
+  galaxy_tags:
+    - corosync
+    - qnetd
+    - qdevice
+    - quorum
+    - cluster
+    - highavailability
+    - proxmox
+    - debian
+    - ubuntu
+    - redhat

@@ -1,0 +1,13 @@
+---
+__corosync_qnetd_packages:
+  - corosync-qnetd
+
+# EL ships corosync-qnetd in the HighAvailability repo, which is present
+# but disabled by default on Rocky/Alma/RHEL. enablerepo on the install
+# task turns it on for that single transaction only — no persistent
+# repo-file changes are made.
+__corosync_qnetd_enablerepo: highavailability
+
+# EL's corosync-qnetd.service sources COROSYNC_QNETD_OPTIONS from this
+# file via EnvironmentFile=.
+__corosync_qnetd_env_file: /etc/sysconfig/corosync-qnetd
