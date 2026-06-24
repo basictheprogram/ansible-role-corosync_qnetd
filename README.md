@@ -15,9 +15,12 @@ The role:
 
 - Installs the `corosync-qnetd` package (enabling the `HighAvailability`
   repo on EL hosts for that single transaction)
+- Initializes the daemon's own NSS certificate database
+  (`corosync-qnetd-certutil -i`) so it can speak TLS, by default
 - Templates the daemon's command-line options (listen address/port,
-  address family, TLS mode, max clients, debug logging) into the env
-  file `corosync-qnetd.service` reads at startup
+  address family, TLS mode, client certificate required, max clients,
+  debug logging) into the env file `corosync-qnetd.service` reads at
+  startup
 - Enables and starts the `corosync-qnetd` service
 
 Per-cluster TLS certificate trust setup is **out of scope** and remains a
