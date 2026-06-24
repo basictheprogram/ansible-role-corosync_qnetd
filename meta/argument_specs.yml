@@ -49,15 +49,32 @@ argument_specs:
 
       corosync_qnetd_tls:
         type: str
-        default: "off"
+        default: "on"
         choices: ["on", "off", "required"]
         description: >
-          TLS mode for client (corosync-qdevice) connections. "on" and
-          "required" require the daemon's own NSS certificate database
-          to already exist (corosync-qnetd-certutil -i), which this
-          role does not create — see README.md and DESIGN.md. Defaults
-          to "off" so the service starts cleanly with zero manual steps
-          on every supported platform.
+          TLS mode for client (corosync-qdevice) connections.
+          Defaults to "on" — Proxmox VE's own documentation requires
+          QDevice-to-cluster traffic to be encrypted, and this is also
+          upstream's own default. "on" and "required" require the
+          daemon's own NSS certificate database to exist
+          (corosync-qnetd-certutil -i); corosync_qnetd_manage_nss_db
+          defaults to true so this role creates it automatically. Only
+          set this to "off" if you understand the security tradeoff —
+          see README.md and DESIGN.md.
+
+      corosync_qnetd_manage_nss_db:
+        type: bool
+        default: true
+        description: >
+          Whether to initialize the daemon's own NSS certificate
+          database (corosync-qnetd-certutil -i) when
+          corosync_qnetd_tls is not "off". Defaults to true so
+          corosync_qnetd_tls's "on" default works out of the box on
+          every supported platform. Idempotent: skipped once
+          /etc/corosync/qnetd/nssdb/qnetd-cacert.crt exists. Does not
+          touch per-cluster trust (corosync-qdevice-net-certutil),
+          which stays a manual, multi-host step performed from each
+          client cluster.
 
       corosync_qnetd_client_cert_required:
         type: bool

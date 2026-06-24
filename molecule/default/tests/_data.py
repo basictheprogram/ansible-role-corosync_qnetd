@@ -52,6 +52,15 @@ DEBIAN_ENV_FILE: str = "/etc/default/corosync-qnetd"
 REDHAT_ENV_FILE: str = "/etc/sysconfig/corosync-qnetd"
 
 #: Expected COROSYNC_QNETD_OPTIONS value rendered from converge.yml's
-#: unmodified corosync_qnetd_* defaults (port 5403, TLS off, no limit
-#: on max clients — see defaults/main.yml).
-DEFAULT_OPTIONS_LINE: str = 'COROSYNC_QNETD_OPTIONS="-p 5403 -s off -m 0"'
+#: unmodified corosync_qnetd_* defaults (port 5403, TLS on with client
+#: cert required, no limit on max clients — see defaults/main.yml).
+DEFAULT_OPTIONS_LINE: str = 'COROSYNC_QNETD_OPTIONS="-p 5403 -s on -c on -m 0"'
+
+# ---------------------------------------------------------------------------
+# NSS certificate database (must match the creates: path in tasks/main.yml)
+# ---------------------------------------------------------------------------
+
+#: CA certificate exported by `corosync-qnetd-certutil -i`. Used as the
+#: idempotency marker for the NSS-db-init task and as proof, in tests,
+#: that the (default-on) task ran.
+QNETD_CACERT_PATH: str = "/etc/corosync/qnetd/nssdb/qnetd-cacert.crt"

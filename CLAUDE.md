@@ -102,11 +102,14 @@ flag the discrepancy and ask before fixing the design to match the code.
 
 `DESIGN.md` covers: why per-cluster TLS trust
 (`corosync-qdevice-net-certutil`) stays manual versus the daemon's own,
-separate NSS certificate database; why firewall management (TCP/5403)
-is out of scope; the EL `HighAvailability` repo per-transaction-enable
-policy; and the config-templating decisions (which command-line flags
-are exposed as variables, and why `corosync_qnetd_tls` defaults to
-`off` rather than upstream's own `on`).
+separate NSS certificate database (which the role creates by default —
+gated behind `corosync_qnetd_manage_nss_db`, on by default); why
+firewall management (TCP/5403) is out of scope; the EL
+`HighAvailability` repo per-transaction-enable policy; and the
+config-templating decisions (which command-line flags are exposed as
+variables, and why `corosync_qnetd_tls` defaults to `on`, matching
+upstream and Proxmox VE's own requirement that QDevice traffic be
+encrypted).
 
 ### Secrets
 
@@ -115,15 +118,18 @@ certificate material is out of scope for this role (see Design notes).
 
 ### Commit scopes
 
-Role-specific subsystem scopes: `packages`, `service`, `preflight`
+Role-specific subsystem scopes: `packages`, `service`, `preflight`, `tls`
 
 ### Settled decisions
 
 * **Original role**, not a fork — no upstream project by this exact
   name exists. GitLab issue tracker, Bob Tanner sole author.
-* **Scope: daemon install + configure (env-file only) + service.** The
-  role installs `corosync-qnetd`, templates its command-line options
-  into one OS-specific env file, and manages `corosync-qnetd.service`.
+* **Scope: daemon install + configure (env-file only) + NSS
+  cert-database init (on by default) + service.** The role installs
+  `corosync-qnetd`, templates its command-line options into one
+  OS-specific env file, initializes the daemon's own NSS certificate
+  database by default (`corosync-qnetd-certutil -i`, gated on
+  `corosync_qnetd_manage_nss_db`), and manages `corosync-qnetd.service`.
   Per-cluster TLS certificate trust (`corosync-qdevice-net-certutil`)
   is explicitly out of scope and stays a manual step.
 * **Platform matrix:** Ubuntu (jammy/noble/resolute), Debian
@@ -132,9 +138,12 @@ Role-specific subsystem scopes: `packages`, `service`, `preflight`
 * **Config surface is the SYNOPSIS-level flags only** — no `-S`
   advanced settings exposed as variables; the man page itself warns
   most of those aren't safe to change.
-* **`corosync_qnetd_tls` defaults to `"off"`**, not upstream's own
-  default of `"on"` — avoids depending on whether a platform's package
-  auto-creates the daemon's NSS certificate database. See `DESIGN.md`.
+* **`corosync_qnetd_tls` defaults to `"on"`**, matching upstream's own
+  default — Proxmox VE's own documentation requires QDevice-to-cluster
+  traffic to be encrypted. See `DESIGN.md`.
+* **`corosync_qnetd_manage_nss_db` defaults to `true`** — so the
+  `corosync_qnetd_tls: "on"` default works out of the box on every
+  supported platform. See `DESIGN.md`.
 
 ### Open questions
 
@@ -147,9 +156,9 @@ If a task touches one of these, leave a `# TODO(open-q):` comment:
   shells out to `corosync-qdevice-net-certutil`, gated behind a
   variable, once there's a concrete multi-cluster use case to design
   against?
-* Should the role optionally manage the daemon's own NSS certificate
-  database (`corosync-qnetd-certutil -i`) once someone actually sets
-  `corosync_qnetd_tls: on`?
+* ~~Should `corosync_qnetd_manage_nss_db` ever default to following
+  `corosync_qnetd_tls` automatically?~~ Resolved — both now default
+  together (`on`/`true`). See `DESIGN.md`.
 
 ### Implementation order
 
@@ -174,6 +183,11 @@ commit. Stop and verify between items.
 8. `templates/corosync-qnetd.j2` + `handlers/main.yml` — config-file
    templating for the SYNOPSIS-level command-line flags. (done)
 9. Molecule coverage for the templated config + updated lint pass.
+   (done)
+10. `corosync_qnetd_manage_nss_db` variable + gated task
+    (`corosync-qnetd-certutil -i`) — daemon-side NSS certificate
+    database init, README/DESIGN.md updates, and molecule coverage for
+    the default (skip) path.
 
 ### Consumer side notes
 

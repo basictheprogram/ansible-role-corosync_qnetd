@@ -45,11 +45,15 @@ could hook into — see Open questions.
 ### The daemon's own TLS cert database is a separate, smaller concern
 
 Don't confuse the above with `corosync-qnetd-certutil -i`, which only
-creates the daemon's own local NSS database (a self-signed CA + server
-cert) so the daemon can speak TLS at all. This is single-host and fully
-automatable in principle — Debian's package postinst already runs it
-automatically. This role still doesn't run it, for a narrower reason:
-see "Config templating" below.
+creates the daemon's own local NSS database — a self-signed CA plus a
+server certificate, both generated locally and exported to
+`/etc/corosync/qnetd/nssdb/qnetd-cacert.crt` — so the daemon can speak
+TLS at all. This is single-host and fully automatable, and the role
+now optionally does it: see "NSS certificate database" below. It
+remains entirely separate from per-cluster trust above — initializing
+this database does not, by itself, let any cluster connect; a
+cluster's certificate still has to be signed by this same CA via
+`corosync-qdevice-net-certutil`, which stays the manual step.
 
 ### Firewall (TCP/5403) is out of scope
 
@@ -91,19 +95,47 @@ Two scope decisions, made explicitly rather than guessed:
   testing footguns nobody asked for. If a real need shows up, add a
   narrowly-scoped variable for that one setting rather than a
   catch-all advanced-settings dict.
-* **`corosync_qnetd_tls` defaults to `"off"`**, not upstream's own
-  default of `"on"`. `on`/`required` require the daemon's own NSS
-  certificate database to already exist. Debian's package creates it
-  automatically in postinst; it was never confirmed whether EL's
-  package does the same (see `TODO.md` history — this is why that
-  question existed). Rather than have the role's default behavior
-  depend on an unconfirmed, platform-specific packaging detail, the
-  default avoids the dependency entirely: TLS off needs no certificate
-  database on any platform. Sites that want TLS create the database
-  themselves (`corosync-qnetd-certutil -i`) and then set
-  `corosync_qnetd_tls: on` — explicitly, with full awareness of the
-  prerequisite, rather than the role silently depending on packaging
-  behavior that varies by distro.
+* **`corosync_qnetd_tls` defaults to `"on"`**, matching upstream's own
+  default. `on`/`required` require the daemon's own NSS certificate
+  database to already exist. Proxmox VE's own documentation requires
+  QDevice-to-cluster traffic to be encrypted (see README.md), so an
+  insecure-by-default posture isn't an acceptable tradeoff for this
+  role's primary deployment scenario. `corosync_qnetd_manage_nss_db`
+  now defaults to `true` (see "NSS certificate database" below), so
+  the role creates that certificate database itself, identically, on
+  every platform — this also obsoletes the previous concern that
+  motivated the old `"off"` default: it was never confirmed whether
+  EL's package auto-creates the database the way Debian's postinst
+  does (see `TODO.md` history), and now it doesn't matter, since the
+  role no longer depends on packaging behavior either way. Sites that
+  want TLS off explicitly opt out, with full awareness of the
+  tradeoff (see README.md's warning), rather than the role defaulting
+  to an insecure posture.
+
+NSS certificate database
+-------------------------
+
+`corosync_qnetd_manage_nss_db` (default `true`) gates a task that runs
+`corosync-qnetd-certutil -i` — the single-host CA-and-server-cert
+bootstrap described above. The task uses `creates:` against
+`/etc/corosync/qnetd/nssdb/qnetd-cacert.crt`, the CA certificate's
+documented export path, so it only runs once per host.
+
+This defaults to `true` alongside `corosync_qnetd_tls` defaulting to
+`"on"`, so the two variables work together out of the box: a fresh
+run on any supported platform ends with a running daemon that speaks
+TLS, with no manual certificate steps required. Sites that don't want
+this role generating CA/server certificates set
+`corosync_qnetd_manage_nss_db: false` explicitly — at which point they
+must also either set `corosync_qnetd_tls: off` or create the database
+themselves beforehand.
+
+Not implemented, and intentionally so: `-G` (root-only file
+permissions, for setups where the daemon's own config shouldn't be
+writable by its own non-root service account) and any form of
+per-cluster signing (`-s`/`-c`/`-n`). The former is a hardening option
+nobody asked for; the latter is the per-cluster trust step above, and
+stays manual regardless of this variable.
 
 Generic by design
 ------------------
@@ -122,14 +154,19 @@ Settled decisions
 
 * Original role, not a fork — no upstream project by this exact name
   exists. GitLab issue tracker, Bob Tanner sole author.
-* Scope: daemon install + configure (env-file only) + service. No
-  template/automate either certificate concern described above.
+* Scope: daemon install + configure (env-file only) + optional NSS
+  cert-database init + service. Per-cluster trust
+  (`corosync-qdevice-net-certutil`) is not automated and stays manual.
 * Platform matrix: Ubuntu (jammy/noble/resolute), Debian
   (bookworm/trixie), EL ("9"/"10").
 * Firewall (TCP/5403) is out of scope.
 * Config surface is the SYNOPSIS-level flags only; no `-S` advanced
   settings exposed.
-* `corosync_qnetd_tls` defaults to `"off"`.
+* `corosync_qnetd_tls` defaults to `"on"` — Proxmox VE requires
+  encrypted QDevice traffic; see "Config templating" above.
+* `corosync_qnetd_manage_nss_db` defaults to `true` — so the
+  `corosync_qnetd_tls: "on"` default works out of the box on every
+  supported platform; see "NSS certificate database" above.
 
 Open questions
 ---------------
@@ -143,11 +180,12 @@ If a task touches one of these, leave a `# TODO(open-q):` comment:
   shells out to `corosync-qdevice-net-certutil`, gated behind a
   variable, once there's a concrete multi-cluster use case to design
   against and a safe secrets-distribution mechanism to use?
-* Should the role optionally manage the daemon's own NSS certificate
-  database (`corosync-qnetd-certutil -i`, idempotent, only when
-  `corosync_qnetd_tls` is not `off` and the database is absent)? Not
-  done now because no one has asked for `corosync_qnetd_tls: on` yet —
-  revisit if/when someone does.
+* ~~Should `corosync_qnetd_manage_nss_db` ever default to following
+  `corosync_qnetd_tls` automatically?~~ **Resolved.** Both now default
+  together (`corosync_qnetd_tls: "on"`, `corosync_qnetd_manage_nss_db:
+  true`), so the role is secure and working out of the box without
+  requiring two separate explicit opt-ins; see "Settled decisions"
+  above.
 * Should `corosync_qnetd_address_family`, `_tls`, etc. become real
   argument_specs `choices` enforcement failures rather than relying on
   `dnf`/daemon-side rejection of bad values? (They already have

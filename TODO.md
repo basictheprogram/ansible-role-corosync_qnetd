@@ -101,6 +101,69 @@ automated cert-init task). Full rationale in `DESIGN.md`.
   --check`, `ansible-playbook --syntax-check` all clean on first pass —
   no findings to fix this round.
 
+### NSS certificate database init (added after config templating)
+
+Follow-up feature request: let the role optionally create the daemon's
+own NSS certificate database, scoped via explicit user decision (PVE
+side and per-cluster trust stay out of scope; only the single-host
+`corosync-qnetd-certutil -i` bootstrap is in scope). Full rationale in
+`DESIGN.md`'s new "NSS certificate database" section.
+
+- `defaults/main.yml` + `meta/argument_specs.yml` — new
+  `corosync_qnetd_manage_nss_db` variable, default `false`.
+- `tasks/main.yml` — new task running `corosync-qnetd-certutil -i`,
+  gated on `corosync_qnetd_manage_nss_db and corosync_qnetd_tls !=
+  'off'`, idempotent via `creates:` against
+  `/etc/corosync/qnetd/nssdb/qnetd-cacert.crt`.
+- `README.md` / `CLAUDE.md` / `DESIGN.md` — updated variable tables,
+  task flow, settled decisions, and the manual-certificate-trust
+  section to distinguish the (now optionally automated) daemon-side
+  database from the (still manual) per-cluster trust step.
+- `molecule/default/tests/_data.py` + `test_certs.py` — new
+  `QNETD_CACERT_PATH` constant and a test asserting the cert file does
+  not exist under the default (unmodified) converge, since
+  `corosync_qnetd_manage_nss_db` defaults `false`. The actual
+  creation path is not exercised — see Open items below.
+
+### TLS-on-by-default + big off-warning (added after PVE-side docs)
+
+Follow-up request, prompted by researching the PVE-side QDevice setup
+above: Proxmox VE's own documentation states QDevice-to-cluster
+traffic must be encrypted, which the role's previous
+`corosync_qnetd_tls: "off"` default contradicted for any
+Proxmox-driven deployment. **Breaking change** — flips two defaults at
+once:
+
+- `defaults/main.yml` + `meta/argument_specs.yml` —
+  `corosync_qnetd_tls` default changed from `"off"` to `"on"`;
+  `corosync_qnetd_manage_nss_db` default changed from `false` to
+  `true`. The second flip is a forced consequence of the first: `on`
+  requires the daemon's own NSS certificate database to exist, so
+  leaving `corosync_qnetd_manage_nss_db: false` would make the new
+  default unable to start. Flipping both together also resolves the
+  original EL-packaging uncertainty that justified the old `"off"`
+  default — see `DESIGN.md`.
+- `README.md` — replaced the existing security note with a prominent
+  warning against setting `corosync_qnetd_tls: off`, linking to
+  [Proxmox VE Cluster Manager — Corosync External Vote Support](https://pve.proxmox.com/pve-docs/chapter-pvecm.html#_corosync_external_vote_support);
+  updated both variable-table rows, the task-flow step 4 description,
+  the manual-certificate-trust section, and the PVE-side prerequisites
+  bullet for the new defaults.
+- `DESIGN.md` / `CLAUDE.md` — rewrote the TLS/NSS-db rationale,
+  Settled decisions, and Open questions to match: secure-by-default is
+  now the stated design goal, and the open question about whether the
+  two variables should default together is resolved (they do).
+- `molecule/default/tests/_data.py` — `DEFAULT_OPTIONS_LINE` updated
+  to `COROSYNC_QNETD_OPTIONS="-p 5403 -s on -c on -m 0"` to match the
+  new default-rendered template output.
+- `molecule/default/tests/test_certs.py` — inverted: the default
+  converge now asserts the CA cert *does* exist (renamed
+  `test_nss_db_not_created_by_default` to
+  `test_nss_db_created_by_default`).
+- See Open items below for the resulting gap-coverage flips — the
+  default path is now tested; the off/false path is now the untested
+  one.
+
 ### realtime.corosync_qnetd symlink
 Added at the roles root, pointing at
 `git_repository/ansible-role-corosync_qnetd`, matching the convention
@@ -156,10 +219,11 @@ can verify.
 - ~~Whether `corosync-qnetd.service` starts cleanly out of the box on
   EL is unconfirmed.~~ **Resolved/moot.** This was about whether EL's
   package auto-creates the daemon's NSS certificate database the way
-  Debian's postinst does. Now moot: `corosync_qnetd_tls` defaults to
-  `"off"`, which needs no certificate database on any platform, so the
-  role's default config no longer depends on that unconfirmed packaging
-  detail. See `DESIGN.md`'s "Config templating" section. Still worth
+  Debian's postinst does. Still moot, now for a different reason:
+  `corosync_qnetd_manage_nss_db` defaults to `true`, so the role
+  creates that certificate database itself, identically, on every
+  platform — it no longer depends on packaging behavior either way.
+  See `DESIGN.md`'s "Config templating" section. Still worth
   confirming `molecule test` is green on el-9/el-10, but no longer a
   blocking unknown.
 
@@ -188,6 +252,13 @@ can verify.
   complexity than this role's current scope justifies — revisit if a
   real use case needs the disabled-service path verified in CI.
 
+- ~~No test exercises `corosync_qnetd_manage_nss_db: true`.~~
+  **Closed** by the TLS-on-by-default change above:
+  `corosync_qnetd_manage_nss_db` now defaults to `true`, so
+  `converge.yml`'s unmodified defaults exercise the creation path
+  directly (`test_certs.py` now asserts the CA cert *does* exist).
+  The new gap is the inverse — see the TLS-off bullet below.
+
 ### Low priority
 
 - **`corosync_qnetd_extra_packages` is untested.** It's a thin
@@ -199,9 +270,18 @@ can verify.
   need for one specific advanced setting shows up; don't add a
   catch-all advanced-settings dict.
 
-- **TLS-on path (`corosync_qnetd_tls: on`/`required`) is untested.**
-  No converge fixture sets it, so no test confirms the daemon actually
-  starts with TLS enabled — that also requires the daemon's own NSS
-  certificate database to exist first, which this role still doesn't
-  create (by design; see `DESIGN.md`). Revisit if/when someone sets
-  `corosync_qnetd_tls` to something other than `"off"`.
+- ~~TLS-on path (`corosync_qnetd_tls: on`/`required`) is untested.~~
+  **Closed** by the TLS-on-by-default change above:
+  `corosync_qnetd_tls` now defaults to `"on"`, so `converge.yml`'s
+  unmodified defaults exercise this path directly
+  (`test_config.py`'s `DEFAULT_OPTIONS_LINE` now expects `-s on -c on`).
+
+- **TLS-off path (`corosync_qnetd_tls: off`) is untested.** The new
+  gap, inverse of the one above: no converge fixture sets it, so no
+  test confirms the daemon starts cleanly with TLS disabled, or that
+  the NSS-db-init task is correctly skipped when `corosync_qnetd_tls:
+  off` is combined with `corosync_qnetd_manage_nss_db: false`.
+  Exercising this would need a second Molecule scenario or an
+  `include_role` override — deferred for the same reason as the other
+  untested-variant gaps in this file, not worth the added complexity
+  until there's a concrete need to verify the off path in CI.

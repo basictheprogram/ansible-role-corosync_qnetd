@@ -31,6 +31,13 @@
   when: ansible_facts['os_family'] == 'RedHat'
   tags: corosync-qnetd
 
+- name: Initialize corosync-qnetd NSS certificate database
+  ansible.builtin.command:
+    cmd: corosync-qnetd-certutil -i
+    creates: /etc/corosync/qnetd/nssdb/qnetd-cacert.crt
+  when: corosync_qnetd_manage_nss_db and corosync_qnetd_tls != 'off'
+  tags: corosync-qnetd
+
 - name: Configure corosync-qnetd
   ansible.builtin.template:
     src: corosync-qnetd.j2
